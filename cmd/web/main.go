@@ -1,23 +1,34 @@
 package main
 
 import (
-	"log"
+	"flag"
+	"log/slog"
 	"net/http"
+	"os"
 )
 
+// Define application struct that holds application-wide dependencies
+type application struct {
+	logger *slog.Logger
+}
+
 func main() {
-	mux := http.NewServeMux()
-	fileServer := http.FileServer(http.Dir("./ui/static/"))
+	// Define new command-line flag
+	addr := flag.String("addr", ":4000", "HTTP network address")
+	// Read in command line argument
+	// Need to use this before using addr
+	// If any errors occur, program will terminate
+	flag.Parse()
 
-	// Register file server as handler for /static/ paths
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	mux.HandleFunc("/", home)
-	mux.HandleFunc("/snippet/view", snippetView)
-	mux.HandleFunc("/snippet/create", snippetCreate)
+	app := &application{
+		logger: logger,
+	}
 
-	log.Print("Starting server on :4000")
+	logger.Info("Starting server", slog.String("addr", *addr))
 
-	err := http.ListenAndServe(":4000", mux)
-	log.Fatal(err)
+	err := http.ListenAndServe(*addr, app.routes())
+	logger.Error(err.Error())
+	os.Exit(1)
 }
